@@ -1,43 +1,158 @@
-alphabet = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-    'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'a', 'b', 'c', 'd',
-    'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z'
-]
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-direction = input("Type 'encode' to encrypt, type 'decode' to decrypt:\n")
-text = input("Type your message:\n").lower()
-shift = int(input("Type the shift number:\n"))
+public class EnhancedCaesarCipherGUI extends JFrame implements ActionListener {
+    // English letter frequency (approximate)
+    private static final double[] ENGLISH_FREQ = {
+        8.167, 1.492, 2.782, 4.253, 12.702, 2.228, 2.015, 6.094,
+        6.966, 0.153, 0.772, 4.025, 2.406, 6.749, 7.507, 1.929,
+        0.095, 5.987, 6.327, 9.056, 2.758, 0.978, 2.360, 0.150,
+        1.974, 0.074
+    };
 
+    // GUI components
+    private JTextField messageField, shiftField;
+    private JTextArea resultArea;
+    private JButton encryptButton, decryptButton, bruteForceButton, freqAnalysisButton;
 
-def encrypt(plain_text, shift_amount):
-    cipher_text = ""
-    for letter in plain_text:
-        position = alphabet.index(letter)
-        new_position = position + shift_amount
-        cipher_text += alphabet[new_position]
-    print(f"The encoded text is {cipher_text}")
+    public EnhancedCaesarCipherGUI() {
+        setTitle("Enhanced Caesar Cipher Program");
+        setSize(600, 400);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(8, 1));
 
-#TODO-1: Create a different function called 'decrypt' that takes the 'text' and 'shift' as inputs.
-def decrypt(letter3, shift_num):
-    orig_text = ""
-    for letter2 in letter3:
-        dec_position = alphabet.index(letter2)
-        new2_position = dec_position - shift_num
-        orig_text += alphabet[new2_position]
-    print(f"orignial text is {orig_text}")
+        panel.add(new JLabel("Enter your message:"));
+        messageField = new JTextField();
+        panel.add(messageField);
 
-    #TODO-2: Inside the 'decrypt' function, shift each letter of the 'text' *backwards* in the alphabet by the shift amount and print the decrypted text.
-    #e.g.
-    #cipher_text = "mjqqt"
-    #shift = 5
-    #plain_text = "hello"
-    #print output: "The decoded text is hello"
+        panel.add(new JLabel("Enter shift value (leave empty for cracking):"));
+        shiftField = new JTextField();
+        panel.add(shiftField);
 
+        encryptButton = new JButton("Encrypt");
+        decryptButton = new JButton("Decrypt");
+        bruteForceButton = new JButton("Brute-force Crack");
+        freqAnalysisButton = new JButton("Frequency Analysis Crack");
 
-#TODO-3: Check if the user wanted to encrypt or decrypt the message by checking the 'direction' variable. Then call the correct function based on that 'drection' variable. You should be able to test the code to encrypt *AND* decrypt a message.
-if direction == "encode":
-    encrypt(plain_text=text, shift_amount=shift)
-if direction == "decode":
-    decrypt(letter3=text, shift_num=shift)
+        panel.add(encryptButton);
+        panel.add(decryptButton);
+        panel.add(bruteForceButton);
+        panel.add(freqAnalysisButton);
+
+        resultArea = new JTextArea();
+        resultArea.setEditable(false);
+        panel.add(new JScrollPane(resultArea));
+
+        add(panel);
+
+        encryptButton.addActionListener(this);
+        decryptButton.addActionListener(this);
+        bruteForceButton.addActionListener(this);
+        freqAnalysisButton.addActionListener(this);
+    }
+
+    public static String encrypt(String plainText, int shift) {
+        StringBuilder cipherText = new StringBuilder();
+        for (char letter : plainText.toCharArray()) {
+            if (Character.isLetter(letter)) {
+                char base = Character.isLowerCase(letter) ? 'a' : 'A';
+                char encryptedLetter = (char) ((letter - base + shift + 26) % 26 + base);
+                cipherText.append(encryptedLetter);
+            } else if (Character.isDigit(letter)) {
+                char encryptedDigit = (char) ((letter - '0' + shift + 10) % 10 + '0');
+                cipherText.append(encryptedDigit);
+            } else {
+                cipherText.append(letter);
+            }
+        }
+        return cipherText.toString();
+    }
+
+    public static String decrypt(String cipherText, int shift) {
+        return encrypt(cipherText, -shift);
+    }
+
+    public static int findShiftByFrequency(String cipherText) {
+        int probableShift = 0;
+        double minChiSquared = Double.MAX_VALUE;
+
+        for (int shift = 0; shift < 26; shift++) {
+            double chiSquared = calculateChiSquared(cipherText, shift);
+            if (chiSquared < minChiSquared) {
+                minChiSquared = chiSquared;
+                probableShift = shift;
+            }
+        }
+        return probableShift;
+    }
+
+    private static double calculateChiSquared(String text, int shift) {
+        int[] letterCount = new int[26];
+        int totalLetters = 0;
+
+        for (char c : text.toCharArray()) {
+            if (Character.isLetter(c)) {
+                c = Character.toLowerCase(c);
+                letterCount[(c - 'a' - shift + 26) % 26]++;
+                totalLetters++;
+            }
+        }
+
+        double chiSquared = 0.0;
+        for (int i = 0; i < 26; i++) {
+            double expected = totalLetters * ENGLISH_FREQ[i] / 100;
+            double observed = letterCount[i];
+            chiSquared += Math.pow(observed - expected, 2) / expected;
+        }
+
+        return chiSquared;
+    }
+
+    public static String crackCipherBruteForce(String cipherText) {
+        StringBuilder result = new StringBuilder("Brute-force results:\n");
+        for (int shift = 1; shift < 26; shift++) {
+            String possibleText = decrypt(cipherText, shift);
+            result.append("Shift ").append(shift).append(": ").append(possibleText).append("\n");
+        }
+        return result.toString();
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        String message = messageField.getText();
+        int shift = 0;
+        String result = "";
+
+        try {
+            if (!shiftField.getText().isEmpty()) {
+                shift = Integer.parseInt(shiftField.getText()) % 36;
+            }
+
+            if (e.getSource() == encryptButton) {
+                result = "Encrypted message: " + encrypt(message, shift);
+            } else if (e.getSource() == decryptButton) {
+                result = "Decrypted message: " + decrypt(message, shift);
+            } else if (e.getSource() == bruteForceButton) {
+                result = crackCipherBruteForce(message);
+            } else if (e.getSource() == freqAnalysisButton) {
+                int predictedShift = findShiftByFrequency(message);
+                result = "Predicted Shift: " + predictedShift + "\nCracked Message: " + decrypt(message, predictedShift);
+            }
+        } catch (Exception ex) {
+            result = "Error: " + ex.getMessage();
+        }
+
+        resultArea.setText(result);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            EnhancedCaesarCipherGUI gui = new EnhancedCaesarCipherGUI();
+            gui.setVisible(true);
+        });
+    }
+}
